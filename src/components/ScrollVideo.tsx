@@ -3,14 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 const LERP_FACTOR = 0.12
 const SEEK_THRESHOLD = 0.04
 
-// Touch devices (phones/tablets) get real playback instead of scroll-scrubbing.
-// Seeking video.currentTime on every animation frame forces the decoder to
-// re-decode from the nearest keyframe each time — cheap on a desktop GPU,
-// very expensive on mobile CPUs, which is what was causing the lag.
-const isCoarsePointer = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(pointer: coarse)').matches
-
 interface ScrollVideoProps {
   src: string
 }
@@ -19,7 +11,6 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [videoVisible, setVideoVisible] = useState(false)
   const [posterVisible, setPosterVisible] = useState(true)
-  const [isMobile] = useState(isCoarsePointer)
 
   const smoothedRef = useRef(0)
   const targetRef = useRef(0)
@@ -27,7 +18,6 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
   const durationRef = useRef(0)
 
   useEffect(() => {
-    if (isMobile) return // no scroll tracking needed for normal playback
     const onScroll = () => {
       const doc = document.documentElement
       const max = doc.scrollHeight - window.innerHeight
@@ -41,7 +31,7 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
     }
-  }, [isMobile])
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -53,14 +43,6 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
     const onLoadedData = () => {
       setVideoVisible(true)
       setPosterVisible(false)
-      // On mobile, just start real playback — no scrubbing loop at all.
-      if (isMobile) {
-        video.loop = true
-        video.play().catch(() => {
-          /* autoplay might be blocked until a user gesture; muted+playsInline
-             should allow it on iOS/Android, this catch just avoids a console error */
-        })
-      }
     }
 
     video.addEventListener('loadedmetadata', onLoadedMetadata)
@@ -70,10 +52,9 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
       video.removeEventListener('loadedmetadata', onLoadedMetadata)
       video.removeEventListener('loadeddata', onLoadedData)
     }
-  }, [isMobile])
+  }, [])
 
   useEffect(() => {
-    if (isMobile) return // real playback handles itself, no rAF seeking loop
     const video = videoRef.current
     if (!video) return
 
@@ -100,7 +81,7 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
     }
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
-  }, [isMobile])
+  }, [])
 
   return (
     <div
