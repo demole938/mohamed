@@ -27,8 +27,7 @@ export default function SectionOne() {
         {/* Right — intro */}
         <Reveal delay={300} className="max-w-xs sm:text-right">
           <p className="text-lg leading-relaxed text-white drop-shadow-md sm:text-xl">
-            I build media buying systems that bring clarity, precision, and measurable
-            growth to every riyal you spend.
+            I build media buying systems that turn ad spend into measurable, compounding growth — across the GCC, the US, and beyond.
           </p>
         </Reveal>
       </div>
