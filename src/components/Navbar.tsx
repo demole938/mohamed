@@ -19,7 +19,7 @@ export default function Navbar() {
           <a href="#" className="flex items-center gap-2 text-white">
             <Logo size={24} />
             <span className="text-lg font-medium tracking-tight sm:text-xl">
-              mohamedibrahem
+              mohamed ibrahem
             </span>
           </a>
         </Reveal>
