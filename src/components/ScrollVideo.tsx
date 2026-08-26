@@ -2,10 +2,18 @@ import { useEffect, useRef, useState } from 'react'
 
 const LERP_FACTOR = 0.12
 const SEEK_THRESHOLD = 0.04
+// Mobile decoders can't keep up with frequent precise seeks — a looser
+// threshold means fewer seek calls per second, which reads as smoother
+// motion even though each individual jump is a touch bigger.
+const MOBILE_SEEK_THRESHOLD = 0.09
+const MOBILE_BREAKPOINT = 1024
 
 interface ScrollVideoProps {
   src: string
 }
+
+// Loosely typed — fastSeek isn't in all lib.dom versions yet.
+type SeekableVideo = HTMLVideoElement & { fastSeek?: (time: number) => void }
 
 export default function ScrollVideo({ src }: ScrollVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -16,6 +24,12 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
   const targetRef = useRef(0)
   const rafRef = useRef<number>(0)
   const durationRef = useRef(0)
+
+  // Tracks whether the element is mid-seek, and the latest requested time
+  // that arrived while it was busy — so we never queue more than one seek
+  // ahead. This is what stops the "lag then jump" stutter on mobile.
+  const seekingRef = useRef(false)
+  const pendingTimeRef = useRef<number | null>(null)
 
   useEffect(() => {
     const onScroll = () => {
@@ -34,7 +48,7 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
   }, [])
 
   useEffect(() => {
-    const video = videoRef.current
+    const video = videoRef.current as SeekableVideo | null
     if (!video) return
 
     const onLoadedMetadata = () => {
@@ -44,19 +58,39 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
       setVideoVisible(true)
       setPosterVisible(false)
     }
+    const onSeeking = () => {
+      seekingRef.current = true
+    }
+    const onSeeked = () => {
+      seekingRef.current = false
+      // A newer target came in while we were busy — apply it now instead
+      // of waiting for the next animation frame, so we don't fall behind.
+      if (pendingTimeRef.current !== null) {
+        const t = pendingTimeRef.current
+        pendingTimeRef.current = null
+        seekTo(video, t)
+      }
+    }
 
     video.addEventListener('loadedmetadata', onLoadedMetadata)
     video.addEventListener('loadeddata', onLoadedData)
+    video.addEventListener('seeking', onSeeking)
+    video.addEventListener('seeked', onSeeked)
 
     return () => {
       video.removeEventListener('loadedmetadata', onLoadedMetadata)
       video.removeEventListener('loadeddata', onLoadedData)
+      video.removeEventListener('seeking', onSeeking)
+      video.removeEventListener('seeked', onSeeked)
     }
   }, [])
 
   useEffect(() => {
-    const video = videoRef.current
+    const video = videoRef.current as SeekableVideo | null
     if (!video) return
+
+    const threshold =
+      window.innerWidth < MOBILE_BREAKPOINT ? MOBILE_SEEK_THRESHOLD : SEEK_THRESHOLD
 
     const tick = () => {
       smoothedRef.current += (targetRef.current - smoothedRef.current) * LERP_FACTOR
@@ -69,11 +103,13 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
 
       if (duration && isFinite(duration)) {
         const t = videoProgress * Math.max(0, duration - 0.05)
-        if (Math.abs(video.currentTime - t) > SEEK_THRESHOLD) {
-          try {
-            video.currentTime = t
-          } catch {
-            /* seek not ready yet */
+        if (Math.abs(video.currentTime - t) > threshold) {
+          if (seekingRef.current) {
+            // Don't stack a new seek on top of one still in flight —
+            // just remember where we want to end up.
+            pendingTimeRef.current = t
+          } else {
+            seekTo(video, t)
           }
         }
       }
@@ -82,6 +118,24 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
     rafRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(rafRef.current)
   }, [])
+
+  function seekTo(video: SeekableVideo, t: number) {
+    // fastSeek trades frame-perfect accuracy for speed — worth it here
+    // since we're scrubbing continuously, not landing on one exact frame.
+    if (typeof video.fastSeek === 'function') {
+      try {
+        video.fastSeek(t)
+        return
+      } catch {
+        /* fall through to currentTime */
+      }
+    }
+    try {
+      video.currentTime = t
+    } catch {
+      /* seek not ready yet */
+    }
+  }
 
   return (
     <div
