@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 
-const VIDEO_URL = '/hero.mp4'
+const DESKTOP_VIDEO_URL = '/hero.mp4'
+const MOBILE_VIDEO_URL = '/hero-mobile.mp4'
+const MOBILE_BREAKPOINT = 1024
 
 interface PreloaderProps {
   onReady: (videoObjectUrl: string) => void
@@ -10,16 +12,21 @@ interface PreloaderProps {
  * Full-screen loading gate. Downloads the hero video to 100% with a visible
  * percentage before handing control back to the app, so the rest of the
  * site only mounts once the video is fully ready — no stutter once inside.
+ *
+ * On small screens it fetches a lighter, mobile-optimized encode instead of
+ * the desktop file — lower resolution and denser keyframes so scroll-seeking
+ * stays smooth on phone hardware. See README for how to generate it.
  */
 export default function Preloader({ onReady }: PreloaderProps) {
   const [percent, setPercent] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    const videoUrl = window.innerWidth < MOBILE_BREAKPOINT ? MOBILE_VIDEO_URL : DESKTOP_VIDEO_URL
 
     const load = async () => {
       try {
-        const res = await fetch(VIDEO_URL)
+        const res = await fetch(videoUrl)
         if (!res.ok || !res.body) throw new Error('video fetch failed')
 
         const total = Number(res.headers.get('content-length')) || 0
@@ -49,7 +56,7 @@ export default function Preloader({ onReady }: PreloaderProps) {
         }, 200)
       } catch {
         // Fall back to letting the browser stream the file directly.
-        if (!cancelled) onReady(VIDEO_URL)
+        if (!cancelled) onReady(videoUrl)
       }
     }
 
