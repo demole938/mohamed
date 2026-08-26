@@ -3,7 +3,7 @@ import Reveal from './Reveal'
 
 const WHATSAPP_URL = 'https://wa.me/201060449876'
 
-const SERVICES = ['/ META ADS', '/ TIKTOK ADS', '/ SNAPCHAT ADS', '/ GOOGLE ADS', '/ LINKEDIN ADS', '/ LEAD GENERATION']
+const SERVICES = ['/ META ADS', '/ TIKTOK ADS', '/ SNAPCHAT ADS', '/ GOOGLE ADS', '/ LINKEDIN ADS']
 
 export default function SectionOne() {
   return (
