@@ -129,9 +129,9 @@ export default function ScrollVideo({ src }: ScrollVideoProps) {
         muted
         playsInline
         preload="auto"
-        className={`absolute inset-0 h-full w-full transition-opacity duration-500 ${
-          isMobile ? 'object-contain' : 'object-cover'
-        } ${videoVisible ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
+          videoVisible ? 'opacity-100' : 'opacity-0'
+        }`}
       />
       {/*
         Persistent contrast scrim. The video's own tones swing from dark to
